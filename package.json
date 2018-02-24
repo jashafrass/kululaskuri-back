@@ -1,0 +1,30 @@
+{
+  "name": "kululaskuri-back",
+  "version": "0.0.1",
+  "description": "Backend for cost explorer",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jashafrass/kululaskuri-back.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jashafrass/kululaskuri-back/issues"
+  },
+  "homepage": "https://github.com/jashafrass/kululaskuri-back#readme",
+  "dependencies": {
+    "aws-sdk": "^2.202.0",
+    "body-parser": "^1.18.2",
+    "express": "^4.16.2",
+    "serverless-http": "^1.5.3",
+    "uuid": "^3.2.1"
+  },
+  "devDependencies": {
+    "serverless-dynamodb-local": "^0.2.27",
+    "serverless-offline": "^3.18.0"
+  }
+}

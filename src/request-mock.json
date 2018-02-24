@@ -1,0 +1,5 @@
+{
+  "resource": "/costs",
+  "path": "/costs",
+  "httpMethod": "GET"
+}

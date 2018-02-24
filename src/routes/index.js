@@ -1,0 +1,52 @@
+const express = require('express');
+const router = express.Router();
+
+const costsCore = require('../core/costs');
+
+/**
+ * Router method for costs-endpoint
+ * @param  {Object} req Express request object
+ * @param  {Object} res Express response object
+ */
+router.get('/costs', function(req, res) {
+	const userId = req.context.identity.cognitoIdentityId;
+
+	costsCore.getCosts(userId).then(function(costs) {
+		res.send({ costs: costs });
+	}).catch(function(error) {
+		res.send({ error : error });
+	});
+});
+/**
+ * Router function for one cost -endpoint
+ * @param  {Object} req  Express request object
+ * @param  {Object} res Express response object
+ *
+ */
+router.get('/costs/:id', function(req, res) {
+	const userId = req.context.identity.cognitoIdentityId;
+	const costId = req.params.id;
+
+	costsCore.getCostById(userId, costId).then(function(cost) {
+		res.send(cost);
+	}).catch(function(error){
+		res.send(error);
+	});
+});
+/**
+ * Router function for adding new cost 
+ * @param  {Object} req  Express request object
+ * @param  {Object} res  Express response object
+ */
+router.post('/costs', function(req, res) {
+	const userId = req.context.identity.cognitoIdentityId;
+	let cost = req.body;
+
+	costsCore.addNewCost(userId, cost).then(function(cost) {
+		res.send(cost)
+	}).catch(function(error) {
+		res.send(error);
+	});
+})
+
+module.exports = router;

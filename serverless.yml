@@ -1,0 +1,21 @@
+service: cost-service
+
+plugins:
+  - serverless-dynamodb-local
+  - serverless-offline 
+
+provider:
+  name: aws
+  runtime: nodejs6.10
+  stage: dev
+  region: eu-central-1
+  environment: 
+    IS_OFFLINE: true
+    TABLE_NAME: Costs
+
+functions:
+  app:
+    handler: src/index.handler
+    events:
+    - http: ANY /
+    - http: 'ANY {proxy+}'
