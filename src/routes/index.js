@@ -12,7 +12,7 @@ router.get('/costs', function(req, res) {
 	const userId = req.context.identity.cognitoIdentityId;
 
 	costsCore.getCosts(userId).then(function(costs) {
-		res.send({ costs: costs });
+		res.send(costs);
 	}).catch(function(error) {
 		res.send({ error : error });
 	});
@@ -47,6 +47,6 @@ router.post('/costs', function(req, res) {
 	}).catch(function(error) {
 		res.send(error);
 	});
-})
+});
 
 module.exports = router;

@@ -17,8 +17,10 @@
   },
   "homepage": "https://github.com/jashafrass/kululaskuri-back#readme",
   "dependencies": {
+    "async": "^2.6.0",
     "aws-sdk": "^2.202.0",
     "body-parser": "^1.18.2",
+    "cors": "^2.8.4",
     "express": "^4.16.2",
     "serverless-http": "^1.5.3",
     "uuid": "^3.2.1"

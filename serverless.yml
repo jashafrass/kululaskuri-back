@@ -1,16 +1,23 @@
 service: cost-service
 
-plugins:
-  - serverless-dynamodb-local
-  - serverless-offline 
-
 provider:
   name: aws
   runtime: nodejs6.10
   stage: dev
   region: eu-central-1
-  environment: 
-    IS_OFFLINE: true
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: 
+        - "arn:aws:dynamodb:eu-central-1:679625349984:table/Costs"
+        - "arn:aws:dynamodb:eu-central-1:679625349984:table/Costs/index/UserId-index"
+  environment:
     TABLE_NAME: Costs
 
 functions:
