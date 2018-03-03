@@ -30,6 +30,10 @@ const core = {
 		});
 	},
 
+	createCategoryHierarchy : function() {
+
+	},
+
 	convertDate : function(timeplaced) {
 		return new Promise((resolve, reject) => {
 			const date = new Date();
@@ -41,14 +45,149 @@ const core = {
 		});
 	},
 
+	/**
+	 * {
+	 * 	Items : [
+	 * 		{ category : 'Ruoka/Tarvike/Juusto', amount : 50 }
+	 * 	]
+	 * }
+	 *
+	 * --> categories : [{
+	 * 		"name" : "Ruoka",
+	 * 		"amount" : 50
+	 * 		"subcategories" : [{
+	 * 			"name" : "Tarvike",
+	 * 			"amount" : 50,
+	 * 			"subcategories" : [{
+	 * 				"name" : "Juusto",
+	 * 				"amount" : 50
+	 * 			}]
+	 * 		}]
+	 * }]
+	 *
+	 * {
+	 * 	"Ruoka" : {
+	 * 		
+	 * 	}
+	 * }
+	 */
+	
+	parseCategory : function(item, categoryPathArray) {
+		const self = this;
+
+		return new Promise((resolve, reject) => {
+			const category = {};
+
+			category.name = categoryPathArray[0];
+			category.amount = item.Amount;
+
+			if(categoryPathArray.length > 1) {
+				const subcategoryPathArray = categoryPathArray.slice(1);
+
+				self.parseCategory(item, subcategoryPathArray).then(function(subcategory) {
+					category.subcategories = []
+					category.subcategories.push(subcategory);
+					resolve(category);
+				});
+			} else {
+				resolve(category);
+			}
+		})
+
+	},
+	/**
+
+	 * @param  {[type]} rawcategories [description]
+	 * @return {[type]}               [description]
+	 */
+	createCategoryTree : function(categories, original) {
+
+		console.log("ORIGINAL " + original);
+
+		const self = this;
+
+		return new Promise((resolve, reject) => {
+
+			const categoryTree = [];
+
+			async.each(categories, function(category, callback) {
+				let found = false;
+				let foundcategory = {};
+
+				async.each(categoryTree, function(resolvedcategory, itemCallback) {
+					if(resolvedcategory.name == category.name) {
+						found = true;
+						resolvedcategory.amount += category.amount;
+						if(!resolvedcategory.subcategories && category.subcategories) {
+							resolvedcategory.subcategories = category.subcategories;
+						} else if(resolvedcategory.subcategories && category.subcategories) {
+							resolvedcategory.subcategories = resolvedcategory.subcategories.concat(category.subcategories);
+						}
+					}
+					itemCallback();
+				}, function() {
+					if(!found) {
+						categoryTree.push(category);
+					}
+					callback();
+				});
+			}, function() {
+				// round robin
+				async.each(categoryTree, function(category, callback) {
+					if(category.subcategories) {
+						self.createCategoryTree(category.subcategories, category.name).then(function(fixedsubcategories) {
+							category.subcategories = fixedsubcategories;
+							callback(); 
+						})
+					} else {
+						callback();
+					}
+
+				}, function() {
+					resolve(categoryTree);
+				});
+
+			});
+		})
+
+	
+
+	},
+
+	resolveCategoryHierarchy : function(costs) {
+		const self = this;
+
+		return new Promise((resolve, reject) => {
+			const categories = [];
+			const parsedCategories = [];
+
+			async.each(costs, function(cost, callback) {
+				async.each(cost.Items, function(item, itemCallback) {
+					// parse category from item
+					self.parseCategory(item, item.Category.split("/")).then(function(category) {
+						parsedCategories.push(category);
+						itemCallback();
+					});
+				}, function() {
+					callback();
+				});
+			}, function() {
+				self.createCategoryTree(parsedCategories).then(function(categories) {
+					resolve(categories);
+				})
+			});
+		})
+
+
+	},
+
 	analyzeCosts : function(costs) {
+
+		const self = this;
 
 		return new Promise((resolve, reject) => {
 			let costAnalysis = {
 				shops : {
-
-				},
-				categories : {
 
 				},
 				costs : costs
@@ -62,19 +201,13 @@ const core = {
 				}
 
 				costAnalysis.shops[cost.Shop] += cost.TotalAmount;
-				// loop through items
-				async.each(cost.Items, function(costItem, itemCallback) {
-					if(costAnalysis.categories[costItem.Category] == undefined) {
-						costAnalysis.categories[costItem.Category] = 0;
-					}
 
-					costAnalysis.categories[costItem.Category] += costItem.Amount;
-					itemCallback();
-				}, function(err1) {
-					callback();
-				})
+				callback();
 			}, function(err) {
-				resolve(costAnalysis)
+				self.resolveCategoryHierarchy(costs).then(function(categories) {
+					costAnalysis.categories = categories;
+					resolve(costAnalysis);
+				});
 			})
 		});
 	},
@@ -183,6 +316,30 @@ const core = {
 			});
 		});
 
+	},
+	deleteCost : function(costId, userId, timeplaced) {
+		return new Promise((resolve, reject) => {
+			const params = {
+				TableName : process.env.TABLE_NAME,
+				Key : {
+					CostsId : costId,
+					Timeplaced : Number(timeplaced)
+				},
+				ConditionExpression : 'UserId = :v1',
+				ExpressionAttributeValues : {
+					":v1" : userId
+				}
+			}
+
+			// set the object to dynamo db
+			dynamodb.delete(params, function(err, data) {
+				if(err) {
+					reject(err);
+				} else {
+					resolve({"success" : true});
+				}
+			})
+		});
 	},
 	/**
 	 * Adds new cost by userId and request body

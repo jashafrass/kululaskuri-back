@@ -49,4 +49,16 @@ router.post('/costs', function(req, res) {
 	});
 });
 
+router.delete('/costs/:id', function(req, res) {
+	const userId = req.context.identity.cognitoIdentityId;
+	const costId = req.params.id;
+	const timeplaced = req.query.ts;
+
+	costsCore.deleteCost(costId, userId, timeplaced).then(function(response) {
+		res.send(response)
+	}).catch(function(error){
+		res.send(error);
+	})
+});
+
 module.exports = router;
