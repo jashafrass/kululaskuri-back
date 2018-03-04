@@ -30,16 +30,17 @@ const core = {
 		});
 	},
 
-	createCategoryHierarchy : function() {
-
-	},
-
+	/**
+	 * Converts timeplaced to a date string
+	 * @param  {Number} timeplaced Numeric timestamp
+	 * @return {Promise}  
+	 */
 	convertDate : function(timeplaced) {
 		return new Promise((resolve, reject) => {
 			const date = new Date();
 			date.setTime(timeplaced);
-
-			const dateString = date.toLocaleDateString("fi-FI");
+			
+			const dateString = date.getDate() + "." + (date.getMonth() + 1) + "." + (1900 + date.getYear());
 
 			resolve({ name : 'Datetime', value : dateString})
 		});
@@ -71,7 +72,13 @@ const core = {
 	 * 	}
 	 * }
 	 */
-	
+
+	/**
+	 * Parses category string array to fancy tree
+	 * @param  {[type]} item              [description]
+	 * @param  {[type]} categoryPathArray [description]
+	 * @return {[type]}                   [description]
+	 */
 	parseCategory : function(item, categoryPathArray) {
 		const self = this;
 
@@ -81,28 +88,31 @@ const core = {
 			category.name = categoryPathArray[0];
 			category.amount = item.Amount;
 
+			// if there are categories coming up, set it
 			if(categoryPathArray.length > 1) {
+				// get sub category path array
 				const subcategoryPathArray = categoryPathArray.slice(1);
 
+				// and recurse
 				self.parseCategory(item, subcategoryPathArray).then(function(subcategory) {
 					category.subcategories = []
 					category.subcategories.push(subcategory);
 					resolve(category);
 				});
+			// we are done now
 			} else {
 				resolve(category);
 			}
 		})
 
 	},
-	/**
 
-	 * @param  {[type]} rawcategories [description]
-	 * @return {[type]}               [description]
+	/**
+	 * Creates category tree from category array
+	 * @param  {Array} categories Category array
+	 * @return {Promise} fixed category tree
 	 */
 	createCategoryTree : function(categories, original) {
-
-		console.log("ORIGINAL " + original);
 
 		const self = this;
 
@@ -132,10 +142,12 @@ const core = {
 					callback();
 				});
 			}, function() {
-				// round robin
+				// round robin for sub categories
 				async.each(categoryTree, function(category, callback) {
+					// if sub categories exist, resolve the tree for them
 					if(category.subcategories) {
-						self.createCategoryTree(category.subcategories, category.name).then(function(fixedsubcategories) {
+						// recurse
+						self.createCategoryTree(category.subcategories).then(function(fixedsubcategories) {
 							category.subcategories = fixedsubcategories;
 							callback(); 
 						})
@@ -144,6 +156,11 @@ const core = {
 					}
 
 				}, function() {
+					// sort the category tree by amount
+					categoryTree.sort(function(a,b) {
+						return b.amount - a.amount;
+					});
+
 					resolve(categoryTree);
 				});
 
@@ -153,7 +170,11 @@ const core = {
 	
 
 	},
-
+	/**
+	 * Resolve category hierarchy for costs
+	 * @param  {[type]} costs [description]
+	 * @return {[type]}       [description]
+	 */
 	resolveCategoryHierarchy : function(costs) {
 		const self = this;
 
@@ -173,7 +194,15 @@ const core = {
 				});
 			}, function() {
 				self.createCategoryTree(parsedCategories).then(function(categories) {
-					resolve(categories);
+					let totalcost = 0.0; 
+
+					async.each(categories, function(category, callback) {
+						totalcost += category.amount;
+						callback();
+					}, function() {
+						resolve({ categories: categories, totalAmount : totalcost });
+					})
+					
 				})
 			});
 		})
@@ -181,34 +210,60 @@ const core = {
 
 	},
 
+	resolveTotalShopCosts : function(costs) {
+		return new Promise((resolve, reject) => {
+			const costArray = [];
+
+			async.each(costs, function(cost, callback) {
+				let found = false;
+
+				async.each(costArray, function(resolvedcost, itemCallback) {
+					if(resolvedcost.name == cost.Shop) {
+						found = true;
+						resolvedcost.amount += cost.TotalAmount;
+					}
+
+					itemCallback();
+				}, function() {
+					if(!found) {
+						costArray.push({ name: cost.Shop, amount : cost.TotalAmount})
+					}
+
+					callback();
+				});
+			}, function() {
+				console.log("Resolved total costs");
+
+				costArray.sort(function(a,b) {
+					return b.amount - a.amount;
+				});
+
+				resolve(costArray);
+			})
+		})
+
+
+	},
+	/**
+	 * Analyzes costs for shops and categories
+	 * @param  {[type]} costs [description]
+	 * @return {[type]}       [description]
+	 */
 	analyzeCosts : function(costs) {
 
 		const self = this;
 
 		return new Promise((resolve, reject) => {
 			let costAnalysis = {
-				shops : {
-
-				},
 				costs : costs
 			};
 
-			// loop through costs
-			async.each(costs, function(cost, callback) {
+			Promise.all([self.resolveTotalShopCosts(costs), self.resolveCategoryHierarchy(costs)]).then(function(results) {
+				costAnalysis.shops = results[0];
+				costAnalysis.categories = results[1];
 
-				if(costAnalysis.shops[cost.Shop] == undefined) {
-					costAnalysis.shops[cost.Shop] = 0;
-				}
-
-				costAnalysis.shops[cost.Shop] += cost.TotalAmount;
-
-				callback();
-			}, function(err) {
-				self.resolveCategoryHierarchy(costs).then(function(categories) {
-					costAnalysis.categories = categories;
-					resolve(costAnalysis);
-				});
-			})
+				resolve(costAnalysis);
+			});
 		});
 	},
 	/**
@@ -253,8 +308,6 @@ const core = {
 						if(err) {
 							reject(err);
 						} else {
-							console.log(data.Items);
-
 							self.analyzeCosts(data.Items).then(function(items) {
 								resolve( items );
 							});

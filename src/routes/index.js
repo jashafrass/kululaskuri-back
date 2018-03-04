@@ -49,6 +49,11 @@ router.post('/costs', function(req, res) {
 	});
 });
 
+/**
+ * Router function for deleting the cost of the user by given id
+ * @param  {Request} req  Express request object
+ * @param  {Response} res Express response object
+ */
 router.delete('/costs/:id', function(req, res) {
 	const userId = req.context.identity.cognitoIdentityId;
 	const costId = req.params.id;
